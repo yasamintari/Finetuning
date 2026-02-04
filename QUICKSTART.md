@@ -9,7 +9,7 @@
 **ML Approach**: Supervised fine-tuning
 - **Input**: Question text
 - **Label**: Expert answer text (the "supervision" signal)
-- **Model**: GPT-2 fine-tuned on 20 Q&A pairs
+- **Model**: Databricks GPT-OSS-120B fine-tuned on 20 Q&A pairs
 
 ## 📊 The Dataset (training_data.csv)
 
@@ -27,9 +27,11 @@
 ```
 1. Load training_data.csv (20 labeled examples)
    ↓
-2. Load pre-trained GPT-2 (knows general language)
+2. Load pre-trained Databricks GPT-OSS-120B (powerful 120B param model)
    ↓
 3. Fine-tune: Train model to predict answers given questions
+   - Use FP16 mixed precision
+   - Gradient accumulation for memory efficiency
    ↓
 4. Test: Ask new questions, see if model generates good answers
    ↓
@@ -50,17 +52,22 @@
 
 3. Import `Simple_Supervised_Finetuning.ipynb`
 
-### Step 2: Create a Cluster
+### Step 2: Create a GPU Cluster
+
+**Important**: This model requires GPU resources!
 
 - Runtime: 14.3 LTS ML or later
-- Node: Standard (CPU is fine, GPU optional for speed)
-- Workers: 0 (single node mode)
+- Node: GPU instance (e.g., **g5.12xlarge** or **A100**)
+- Workers: Multi-node for faster training (recommended: 2-4 GPU nodes)
+- Enable Unity Catalog
 
 ### Step 3: Run the Notebook
 
-1. Attach notebook to cluster
+1. Attach notebook to GPU cluster
 2. Run all cells (Shift + Enter)
-3. Training takes ~5-10 minutes
+3. Training takes ~30-60 minutes (depends on GPU configuration)
+
+**Note**: The databricks-gpt-oss-120b is a 120 billion parameter model, so it requires significant GPU memory.
 
 ### Step 4: Test Your Model
 
@@ -94,13 +101,13 @@ Imagine teaching a student:
 **Before fine-tuning**:
 ```
 Question: "What's your outlook on tech stocks?"
-Model: "I think technology is interesting and..." [generic response]
+Databricks GPT-OSS-120B: "Technology companies are important to the economy..." [generic]
 ```
 
 **After fine-tuning**:
 ```
 Question: "What's your outlook on tech stocks?"
-Model: "Technology sector shows strong momentum entering 2026. Key drivers include AI infrastructure buildout... recommend 25% allocation..." [expert-level response]
+Fine-tuned Model: "Technology sector shows strong momentum entering 2026. Key drivers include AI infrastructure buildout with estimated $150B in capex from major cloud providers... recommend 25% portfolio allocation to AI infrastructure plays with strong FCF generation." [expert hedge fund analyst response]
 ```
 
 ## 🎓 What Makes This "Supervised"?
@@ -123,17 +130,24 @@ After training, your model should:
 
 ## 🔧 Troubleshooting
 
+**Error: CUDA out of memory**
+- Use gradient checkpointing (already enabled)
+- Reduce batch size to 1 (already set)
+- Increase gradient accumulation steps
+- Use more GPUs or larger GPU instances
+
 **Error: File not found**
 - Make sure `training_data.csv` is uploaded to `/dbfs/FileStore/`
 
 **Model gives generic answers**
 - Add more training examples (50-100+)
 - Train for more epochs (5-10)
-- Try larger model (GPT-2 Medium)
+- Check that training loss is decreasing
 
 **Training too slow**
-- Use GPU cluster instead of CPU
-- Reduce batch size or sequence length
+- Use more powerful GPU instances (A100 recommended)
+- Use multi-GPU setup
+- Consider using LoRA for faster training
 
 ## 📚 Files in This Demo
 
