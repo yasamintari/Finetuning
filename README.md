@@ -31,22 +31,59 @@ Each example contains:
 ## 📁 Files
 
 1. **`Simple_Supervised_Finetuning.ipynb`** - Databricks notebook with complete workflow
-2. **`training_data.csv`** - Labeled dataset (question, answer pairs)
+2. **`training_data.csv`** - Source data (20 labeled Q&A pairs)
+3. **`load_csv_to_delta.py`** - Helper script to load CSV into Delta table
+
+## 🗄️ Data Architecture
+
+### Delta Tables (Unity Catalog)
+- **Training Data**: `users.yasamin_tari.hedge_fund_training_data`
+- **Model Registry**: `users.yasamin_tari.finetuned_models`
+
+### Volumes (Unity Catalog)
+- **Model Storage**: `/Volumes/users/yasamin_tari/models/`
+
+**No DBFS usage** - everything uses Unity Catalog!
 
 ## 🚀 Quick Start
 
-1. Upload `training_data.csv` to DBFS: `/dbfs/FileStore/training_data.csv`
-2. Upload `Simple_Supervised_Finetuning.ipynb` to Databricks workspace
-3. Create a **GPU cluster** (required for 120B model):
-   - Runtime: 14.3 LTS ML or later
-   - Node: GPU instance (e.g., g5.12xlarge or A100)
-   - Enable Unity Catalog
-4. Run all cells in the notebook
-5. Query your fine-tuned model!
+### Prerequisites
+1. Unity Catalog enabled in Databricks workspace
+2. Access to `users.yasamin_tari` catalog and schema
+3. GPU cluster (g5.12xlarge or A100)
 
-**Training time**: Depends on GPU, approximately 30-60 minutes on multi-GPU setup
+### Setup Steps
 
-**Note**: The databricks-gpt-oss-120b is a large model requiring significant GPU resources.
+1. **Create the schema** (if not exists):
+   ```sql
+   CREATE SCHEMA IF NOT EXISTS users.yasamin_tari;
+   ```
+
+2. **Load training data into Delta table**:
+   ```python
+   # Option A: Use the provided script
+   # Run load_csv_to_delta.py in a notebook
+   
+   # Option B: Load directly
+   import pandas as pd
+   df = pd.read_csv("training_data.csv")
+   spark.createDataFrame(df).write.format("delta").mode("overwrite") \
+       .saveAsTable("users.yasamin_tari.hedge_fund_training_data")
+   ```
+
+3. **Create volume for models**:
+   ```sql
+   CREATE VOLUME IF NOT EXISTS users.yasamin_tari.models;
+   ```
+
+4. **Import and run the notebook**:
+   - Upload `Simple_Supervised_Finetuning.ipynb`
+   - Attach to GPU cluster
+   - Run all cells
+
+**Training time**: 30-60 minutes on multi-GPU setup
+
+**Note**: All data stored in Unity Catalog (Delta tables + Volumes), no DBFS!
 
 ## 📊 Example Training Data
 
@@ -60,16 +97,17 @@ Each example contains:
 
 ## 🔧 What the Notebook Does
 
-1. **Loads labeled data** from CSV (question, answer columns)
-2. **Loads Databricks GPT-OSS-120B** (powerful open-source GPT model)
-3. **Fine-tunes** using standard supervised learning with optimizations:
+1. **Creates Unity Catalog volume** for model storage
+2. **Loads labeled data** from Delta table (`users.yasamin_tari.hedge_fund_training_data`)
+3. **Loads Databricks GPT-OSS-120B** (powerful open-source GPT model)
+4. **Fine-tunes** using standard supervised learning with optimizations:
    - FP16 mixed precision for memory efficiency
    - Gradient accumulation for larger effective batch size
    - Gradient checkpointing to save memory
    - Automatic device mapping across GPUs
-4. **Evaluates** on test questions
-5. **Saves model** to Databricks
-6. **Registers** in Unity Catalog (`users.yasamin_tari.finetuned_models`)
+5. **Evaluates** on test questions
+6. **Saves model** to Unity Catalog Volume (`/Volumes/users/yasamin_tari/models/`)
+7. **Registers metadata** in Delta table (`users.yasamin_tari.finetuned_models`)
 
 ## 📈 Expected Results
 
@@ -81,7 +119,9 @@ Each example contains:
 ## 🔄 Simple Workflow
 
 ```
-Labeled Data (CSV with 20 Q&A pairs)
+CSV (training_data.csv)
+    ↓
+Load into Delta Table (users.yasamin_tari.hedge_fund_training_data)
     ↓
 Load Databricks GPT-OSS-120B (pre-trained)
     ↓
@@ -92,7 +132,9 @@ Fine-tune with supervised learning
     ↓
 Evaluate on test questions
     ↓
-Save to Unity Catalog
+Save to Unity Catalog Volume (/Volumes/users/yasamin_tari/models/)
+    ↓
+Register metadata in Delta table (users.yasamin_tari.finetuned_models)
     ↓
 Deploy for inference
 ```

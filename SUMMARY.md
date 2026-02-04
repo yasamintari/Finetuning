@@ -10,34 +10,46 @@ A complete, production-ready demo for fine-tuning an open-source GPT model on he
 
 ### 1. **Simple_Supervised_Finetuning.ipynb** ⭐
 The main Databricks notebook with:
-- Load 20 labeled Q&A pairs from CSV
+- Create Unity Catalog volume for models
+- Load 20 labeled Q&A pairs from **Delta table**
 - Load **databricks-gpt-oss-120b** (120B parameter model)
 - Simple supervised fine-tuning with cross-entropy loss
 - Memory optimizations (FP16, gradient accumulation, checkpointing)
 - Test on new questions
-- Save to Unity Catalog
+- Save to **Unity Catalog Volume**
+- Register metadata in **Delta table**
 
 ### 2. **training_data.csv**
-20 labeled examples:
+20 labeled examples (source data):
 - **question** column = input (X)
 - **answer** column = label (Y)
 - Topics: portfolio analysis, risk metrics, DCF valuation, hedging strategies, etc.
 
-### 3. **README.md**
-Complete technical documentation with architecture, workflow, and instructions
+### 3. **load_csv_to_delta.py**
+Helper script to load CSV into Delta table
 
-### 4. **QUICKSTART.md**
+### 4. **README.md**
+Complete technical documentation with Unity Catalog architecture
+
+### 5. **QUICKSTART.md**
 Simple explanation of supervised learning concepts for beginners
 
-### 5. **MODEL_INFO.md**
+### 6. **MODEL_INFO.md**
 Detailed information about databricks-gpt-oss-120b:
 - Hardware requirements
 - Cost estimates
 - Performance expectations
 - LoRA alternative recommendations
 
-### 6. **upload_to_dbfs.py**
-Helper script to upload CSV to Databricks File System
+### 7. **UNITY_CATALOG_ARCHITECTURE.md** 🆕
+Complete Unity Catalog data architecture:
+- Delta table schemas
+- Volume structure
+- Access control examples
+- Query examples
+
+### 8. **upload_to_dbfs.py** ❌ (Deprecated - not using DBFS!)
+Replaced with Delta table approach
 
 ---
 
@@ -108,11 +120,35 @@ The model learns to **map questions → expert answers** by seeing these labeled
 
 ## 🚀 How to Run
 
-1. **Upload** `training_data.csv` to `/dbfs/FileStore/`
-2. **Import** `Simple_Supervised_Finetuning.ipynb` to Databricks
-3. **Create GPU cluster** (g5.12xlarge or A100)
-4. **Run all cells**
-5. **Model saves** to `users.yasamin_tari.finetuned_models`
+1. **Create schema** (if not exists):
+   ```sql
+   CREATE SCHEMA IF NOT EXISTS users.yasamin_tari;
+   ```
+
+2. **Load training data to Delta table**:
+   ```python
+   # Option A: Run load_csv_to_delta.py
+   # Option B: Direct load
+   import pandas as pd
+   df = pd.read_csv("training_data.csv")
+   spark.createDataFrame(df).write.format("delta").mode("overwrite") \
+       .saveAsTable("users.yasamin_tari.hedge_fund_training_data")
+   ```
+
+3. **Create volume**:
+   ```sql
+   CREATE VOLUME IF NOT EXISTS users.yasamin_tari.models;
+   ```
+
+4. **Import notebook** to Databricks
+
+5. **Create GPU cluster** (g5.12xlarge or A100)
+
+6. **Run all cells**
+
+7. **Model saves** to `/Volumes/users/yasamin_tari/models/`
+
+8. **Metadata registered** in `users.yasamin_tari.finetuned_models`
 
 ---
 
@@ -180,13 +216,16 @@ Measures how wrong the model's predictions are. Training minimizes this loss.
 
 | File | Purpose |
 |------|---------|
-| `Simple_Supervised_Finetuning.ipynb` | Main training notebook |
-| `training_data.csv` | 20 labeled Q&A pairs |
+| `Simple_Supervised_Finetuning.ipynb` | Main training notebook (uses Delta tables!) |
+| `training_data.csv` | Source: 20 labeled Q&A pairs |
+| `load_csv_to_delta.py` | Load CSV into Delta table |
 | `README.md` | Technical documentation |
 | `QUICKSTART.md` | Beginner-friendly guide |
 | `MODEL_INFO.md` | Model specs and costs |
-| `upload_to_dbfs.py` | Upload helper |
+| `UNITY_CATALOG_ARCHITECTURE.md` | Complete UC data architecture |
 | `SUMMARY.md` | This file! |
+
+**Key Change**: Using **Delta tables + Volumes** (Unity Catalog), NOT DBFS!
 
 ---
 
@@ -194,17 +233,23 @@ Measures how wrong the model's predictions are. Training minimizes this loss.
 
 You now have:
 - ✅ Clear problem definition
-- ✅ Labeled training dataset
+- ✅ Labeled training dataset (stored in Delta table)
 - ✅ Complete notebook with simple supervised fine-tuning
-- ✅ No complex LoRA/quantization (just straightforward training)
+- ✅ No DBFS - pure Unity Catalog architecture
+- ✅ Delta tables for data + metadata
+- ✅ Volumes for model storage
 - ✅ Using proper open-source GPT model (databricks-gpt-oss-120b)
 - ✅ Clear explanation of what the data represents
+- ✅ Production-grade data governance
 
-**Just upload to Databricks and run!** 🚀
+**Just set up Unity Catalog and run!** 🚀
 
 ---
 
 **Model**: `databricks-gpt-oss-120b`  
 **Catalog**: `users.yasamin_tari`  
+**Training Data**: Delta table `users.yasamin_tari.hedge_fund_training_data`  
+**Model Storage**: Volume `/Volumes/users/yasamin_tari/models/`  
 **Training**: Simple supervised learning with cross-entropy loss  
-**Use Case**: Hedge fund analyst Q&A automation
+**Use Case**: Hedge fund analyst Q&A automation  
+**Architecture**: Unity Catalog (Delta + Volumes), no DBFS!
